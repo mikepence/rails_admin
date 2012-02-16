@@ -285,6 +285,21 @@ module RailsAdmin
           (weight_order = a.weight <=> b.weight) == 0 ? a.label.downcase <=> b.label.downcase : weight_order
         end
       end
+
+      # Deferred configuration blocks that will be called later.
+      @@deferred_configurations = []
+      mattr_accessor :deferred_configurations
+
+      def self.defer(block)
+        @@deferred_configurations << block
+      end
+
+      # Process all deferred blocks
+      def self.deferred
+        @@deferred_configurations.each do |configuration|
+          configuration.call(self)
+        end
+      end
     end
 
     # Set default values for configuration options on load

@@ -32,6 +32,10 @@ module RailsAdmin
     end
   end
 
+  def self.defer_config(&block)
+    RailsAdmin::Config.defer block
+  end
+
   # Reset RailsAdmin configuration to defaults
   def self.reset
     RailsAdmin::Config.reset
