@@ -9,6 +9,10 @@ module RailsAdmin
           []
         end
 
+        register_instance_option(:scope) do
+          nil
+        end
+
         # Number of items listed per page
         register_instance_option :items_per_page do
           RailsAdmin::Config.default_items_per_page

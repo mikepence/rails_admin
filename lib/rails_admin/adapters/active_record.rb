@@ -47,7 +47,13 @@ module RailsAdmin
       end
 
       def scoped
-        model.scoped
+        model_config = RailsAdmin.config(model)
+        scope_name = model_config.list.scope
+        if scope_name && model.respond_to?(scope_name = scope_name.to_sym)
+          model.send scope_name
+        else
+          model.scoped
+        end
       end
 
       def create(params = {})

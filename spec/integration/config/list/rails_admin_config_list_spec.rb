@@ -506,4 +506,65 @@ describe "RailsAdmin Config DSL List Section" do
       end
     end
   end
+
+  # scoping options
+  describe "scoping" do
+
+    let(:today){ Date.today }
+
+    context "should be configurable" do
+      it "globally" do
+        [
+          { :name => 'American',      :created_at => (today - 1.day) },
+          { :name => 'Florida State', :created_at => (today - 2.days)},
+          { :name => 'National',      :created_at => today }
+        ].each do |attributes|
+          FactoryGirl.create :league, attributes
+        end
+
+        [
+          { :name => "Jackie Robinson",  :created_at => today,            :team_id => rand(99999), :number => 42 },
+          { :name => "Deibinson Romero", :created_at => (today - 2.days), :team_id => rand(99999), :number => 13 },
+          { :name => "Sandy Koufax",     :created_at => (today - 1.days), :team_id => rand(99999), :number => 32 }
+        ].each do |attributes|
+          FactoryGirl.create :player, attributes
+        end
+
+        RailsAdmin.config do |config|
+          config.models do
+            list do
+              scope :test_scope
+            end
+          end
+        end
+
+        League.class_exec do
+          scope :test_scope, lambda {
+            where("name <> 'National'")
+          }
+        end
+
+        League.all.size.should == 3
+        League.test_scope.all.size.should == 2
+
+        Player.class_exec do
+          scope :test_scope, lambda {
+            where("number > 13")
+          }
+        end
+
+        visit index_path(:model_name => "league")
+        should have_selector("tbody tr", :count => 2)
+        should have_content("American")
+        should have_content("Florida State")
+        should_not have_content("National")
+
+        visit index_path(:model_name => "player")
+        should have_selector("tbody tr", :count => 2)
+        should have_content("Jackie Robinson")
+        should have_content("Sandy Koufax")
+        should_not have_content("Deibinson Romero")
+      end
+    end
+  end
 end
