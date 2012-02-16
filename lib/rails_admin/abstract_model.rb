@@ -29,6 +29,10 @@ module RailsAdmin
       )
     end
 
+    def self.reset_models
+      @models = []
+    end
+
     # Given a string +model_name+, finds the corresponding model class
     def self.lookup(model_name)
       model = model_name.constantize rescue nil

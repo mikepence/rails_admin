@@ -34,6 +34,13 @@ module RailsAdmin
       # Configuration option to specify which models you want to exclude.
       attr_accessor :excluded_models
 
+      alias set_excluded_models excluded_models=
+      def excluded_models=(models)
+        set_excluded_models(models)
+        RailsAdmin::AbstractModel.reset_models
+        models
+      end
+
       # Configuration option to specify a whitelist of models you want to RailsAdmin to work with.
       # The excluded_models list applies against the whitelist as well and further reduces the models
       # RailsAdmin will use.
