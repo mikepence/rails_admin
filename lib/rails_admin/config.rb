@@ -294,16 +294,18 @@ module RailsAdmin
       end
 
       # Deferred configuration blocks that will be called later.
-      @@deferred_configurations = []
-      mattr_accessor :deferred_configurations
+      attr_writer :deferred_configurations
+      def deferred_configurations
+        @deferred_configurations ||= []
+      end
 
-      def self.defer(block)
-        @@deferred_configurations << block
+      def defer(block)
+        deferred_configurations << block
       end
 
       # Process all deferred blocks
-      def self.deferred
-        @@deferred_configurations.each do |configuration|
+      def deferred
+        deferred_configurations.each do |configuration|
           configuration.call(self)
         end
       end
