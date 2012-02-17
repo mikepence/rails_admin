@@ -18,7 +18,23 @@
   
   xhr = !field.associated_collection_cache_all
 
-  collection = xhr ? [[selected_name, selected_id]] : controller.list_entries(config, :index, field.associated_collection_scope, false).map { |o| [o.send(config.object_label_method), o.id] }
+  collection =
+    if xhr
+      [[selected_name, selected_id]]
+    else
+      includes_current = false
+      _collection = controller.list_entries(config, :index, field.associated_collection_scope, false).map do |o|
+        includes_current  ||= o.id == selected_id
+        Rails.logger.debug "includes #{selected_id.inspect} checking #{o.id.inspect}"
+        [o.send(config.object_label_method), o.id]
+      end
+
+      if selected_id && !includes_current
+        _collection << [selected_name, selected_id]
+      end
+
+      _collection
+    end
 
 - selected_id = (hdv = field.html_default_value).nil? ? selected_id : hdv
 = form.select field.method_name, collection, { :selected => selected_id, :include_blank => true }, field.html_attributes.reverse_merge({:placeholder => t('admin.misc.search')})
