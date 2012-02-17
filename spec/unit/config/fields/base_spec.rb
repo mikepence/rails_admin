@@ -214,7 +214,7 @@ describe RailsAdmin::Config::Fields::Base do
   end
 
   describe "#default_search_operator" do
-    let(:abstract_model) { RailsAdmin::AbstractModel.new('player') }
+    let(:abstract_model) { RailsAdmin::AbstractModel.new('Player') }
     let(:model_config) { RailsAdmin.config(abstract_model) }
     let(:queryable_fields) { model_config.list.fields.select(&:queryable?) }
 
@@ -276,5 +276,11 @@ describe RailsAdmin::Config::Fields::Base do
       RailsAdmin.config(Team).field(:name).render.should == 'rendered'
     end
   end
-
+  
+  describe '#active' do
+    it 'is false by default' do
+      RailsAdmin.config(Team).field(:division).active?.should be_false  
+    end
+  end
+  
 end
