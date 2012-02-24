@@ -1,7 +1,8 @@
 require 'active_support/core_ext/string/inflections'
 require 'active_model/mass_assignment_security'
 
-require 'rails_admin/config/base'
+require 'rails_admin/config/proxyable'
+require 'rails_admin/config/configurable'
 require 'rails_admin/config/hideable'
 require 'rails_admin/config/fields'
 require 'rails_admin/config/fields/association'
@@ -10,36 +11,41 @@ require 'rails_admin/config/fields/groupable'
 module RailsAdmin
   module Config
     module Fields
-      class Base < RailsAdmin::Config::Base
-        attr_reader :name, :properties
+      class Base
+        include RailsAdmin::Config::Proxyable
+        include RailsAdmin::Config::Configurable
+        include RailsAdmin::Config::Hideable
+
+        attr_reader :name, :properties, :abstract_model
         attr_accessor :defined, :order, :section
+        attr_reader :parent, :root
 
         def self.inherited(klass)
           klass.instance_variable_set("@view_helper", :text_field)
         end
 
-        include RailsAdmin::Config::Hideable
-
         def initialize(parent, name, properties)
-          super(parent)
-          
+          @parent = parent
+          @root = parent.root
+
+          @abstract_model = parent.abstract_model
           @defined = false
           @name = name
           @order = 0
           @properties = properties
           @section = parent
-          
+
           extend RailsAdmin::Config::Fields::Groupable
         end
 
         register_instance_option(:css_class) do
           "#{self.name}_field"
         end
-        
+
         def type_css_class
           "#{type}_type"
         end
-        
+
         def virtual?
           properties.blank?
         end
@@ -47,7 +53,7 @@ module RailsAdmin
         register_instance_option(:column_width) do
           nil
         end
-        
+
         register_instance_option(:sortable) do
           !virtual? || children_fields.first || false
         end
@@ -130,7 +136,7 @@ module RailsAdmin
         register_instance_option(:html_attributes) do
           {}
         end
-        
+
         register_instance_option :default_value do
           nil
         end
@@ -182,11 +188,11 @@ module RailsAdmin
         register_instance_option(:view_helper) do
           @view_helper ||= self.class.instance_variable_get("@view_helper")
         end
-        
+
         register_instance_option :read_only do
           not editable
         end
-        
+
         # init status in the view
         register_instance_option :active? do
           false
@@ -201,12 +207,12 @@ module RailsAdmin
           end
           returned
         end
-        
+
         # columns mapped (belongs_to, paperclip, etc.). First one is used for searching/sorting by default
         register_instance_option :children_fields do
           []
         end
-        
+
         register_instance_option :render do
           bindings[:view].render :partial => partial.to_s, :locals => {:field => self, :form => bindings[:form] }
         end
@@ -215,7 +221,7 @@ module RailsAdmin
           return false if @properties && @properties[:read_only]
           !bindings[:object].class.active_authorizer[bindings[:view].controller.send(:_attr_accessible_role)].deny?(self.method_name)
         end
-        
+
 
         # Is this an association
         def association?
@@ -263,12 +269,12 @@ module RailsAdmin
         def value
           bindings[:object].safe_send(name)
         end
-        
+
         # Reader for nested attributes
         register_instance_option :nested_form do
           false
         end
-        
+
         def inverse_of
           nil
         end
@@ -276,7 +282,7 @@ module RailsAdmin
         def method_name
           name
         end
-        
+
         def html_default_value
           bindings[:object].new_record? && self.value.nil? && !self.default_value.nil? ? self.default_value : nil
         end

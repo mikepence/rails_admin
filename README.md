@@ -22,7 +22,7 @@ Hoeven][plukevdh], and [Rein Henrichs][reinh].
 
 * Actions
 
-Custom actions are finally there. Default should stay put. To customize them, please have a look at: 
+Custom actions are finally there. Default should stay put. To customize them, please have a look at:
 
 
 [Wiki: actions](https://github.com/sferik/rails_admin/wiki/Actions)<br>
@@ -196,9 +196,11 @@ implementations:
 * Ruby 1.9.3
 * [Rubinius][]
 * [Ruby Enterprise Edition][ree]
+* [JRuby][jruby]
 
 [rubinius]: http://rubini.us/
 [ree]: http://www.rubyenterpriseedition.com/
+[jruby]:http://jruby.org/
 
 ## <a name="screenshots"></a>Screenshots
 ![Dashboard view](https://github.com/sferik/rails_admin/raw/master/screenshots/dashboard.png "dashboard view")

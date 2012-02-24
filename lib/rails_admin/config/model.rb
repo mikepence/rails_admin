@@ -1,5 +1,6 @@
 require 'rails_admin/config'
-require 'rails_admin/config/base'
+require 'rails_admin/config/proxyable'
+require 'rails_admin/config/configurable'
 require 'rails_admin/config/hideable'
 require 'rails_admin/config/has_groups'
 require 'rails_admin/config/fields/group'
@@ -12,14 +13,20 @@ require 'rails_admin/config/actions'
 module RailsAdmin
   module Config
     # Model specific configuration object.
-    class Model < RailsAdmin::Config::Base
+    class Model
+      include RailsAdmin::Config::Proxyable
+      include RailsAdmin::Config::Configurable
       include RailsAdmin::Config::Hideable
       include RailsAdmin::Config::Sections
-      
+
       attr_reader :abstract_model
       attr_accessor :groups
-      
+      attr_reader :parent, :root
+
       def initialize(entity)
+        @parent = nil
+        @root = self
+
         @abstract_model = begin
           if entity.kind_of?(RailsAdmin::AbstractModel)
             entity
@@ -29,11 +36,7 @@ module RailsAdmin
             RailsAdmin::AbstractModel.new(entity.class)
           end
         end
-        
         @groups = [ RailsAdmin::Config::Fields::Group.new(self, :default).tap {|g| g.label{I18n.translate("admin.form.basic_info")} } ]
-        @bindings = {}
-        @parent = nil
-        @root = self
       end
 
       def excluded?
@@ -62,10 +65,6 @@ module RailsAdmin
 
       register_instance_option :weight do
         0
-      end
-
-      register_instance_option :page_type do
-        abstract_model.pretty_name.downcase
       end
 
       # parent node in navigation/breadcrumb

@@ -1,17 +1,17 @@
 module RailsAdmin
 
   class MainController < RailsAdmin::ApplicationController
-            
+
     include ActionView::Helpers::TextHelper
     include RailsAdmin::MainHelper
     include RailsAdmin::ApplicationHelper
-    
+
     layout "rails_admin/application"
-    
+
     before_filter :get_model, :except => RailsAdmin::Config::Actions.all(:root).map(&:action_name)
     before_filter :get_object, :only => RailsAdmin::Config::Actions.all(:member).map(&:action_name)
     before_filter :check_for_cancel
-    
+
     RailsAdmin::Config::Actions.all.each do |action|
       class_eval %{
         def #{action.action_name}
@@ -19,13 +19,12 @@ module RailsAdmin
           @authorization_adapter.try(:authorize, action.authorization_key, @abstract_model, @object)
           @action = action.with({:controller => self, :abstract_model => @abstract_model, :object => @object})
           @page_name = wording_for(:title)
-          @page_type = @abstract_model && @abstract_model.pretty_name.downcase || "dashboard"
-          
+
           instance_eval &@action.controller
         end
       }
     end
-    
+
     def bulk_action
       self.send(params[:bulk_action]) if params[:bulk_action].in?(RailsAdmin::Config::Actions.all(:controller => self, :abstract_model => @abstract_model).select(&:bulkable?).map(&:route_fragment))
     end
@@ -34,12 +33,12 @@ module RailsAdmin
       scope = @authorization_adapter && @authorization_adapter.query(auth_scope_key, model_config.abstract_model)
       scope = model_config.abstract_model.scoped.merge(scope)
       scope = scope.instance_eval(&additional_scope) if additional_scope
-      
+
       get_collection(model_config, scope, pagination)
     end
 
     private
-    
+
     def back_or_index
       params[:return_to].presence && params[:return_to].include?(request.host) && (params[:return_to] != request.fullpath) ? params[:return_to] : index_path
     end
@@ -71,7 +70,6 @@ module RailsAdmin
       {:sort => column, :sort_reverse => (params[:sort_reverse] == reversed_sort.to_s)}
     end
 
-
     def get_attributes
       attributes = params[@abstract_model.to_param.gsub('~','_')] || {}
       attributes.each do |key, value|
@@ -82,7 +80,7 @@ module RailsAdmin
       end
       attributes
     end
-    
+
     def redirect_to_on_success
       notice = t("admin.flash.successful", :name => @model_config.label, :action => t("admin.actions.#{@action.key}.done"))
       if params[:_add_another]
@@ -118,7 +116,8 @@ module RailsAdmin
       options = options.merge(:page => (params[:page] || 1).to_i, :per => (params[:per] || model_config.list.items_per_page)) if pagination
       options = options.merge(:include => associations) unless associations.blank?
       options = options.merge(get_sort_hash(model_config)) unless params[:associated_collection]
-      options = options.merge(model_config.abstract_model.get_conditions_hash(model_config, params[:query], params[:f])) if (params[:query].present? || params[:f].present?)
+      options = options.merge(:query => params[:query]) if params[:query].present?
+      options = options.merge(:filters => params[:f]) if params[:f].present?
       options = options.merge(:bulk_ids => params[:bulk_ids]) if params[:bulk_ids]
 
       objects = model_config.abstract_model.all(options, scope)
@@ -127,7 +126,7 @@ module RailsAdmin
     def get_association_scope_from_params
       return nil unless params[:associated_collection].present?
       source_abstract_model = RailsAdmin::AbstractModel.new(to_model_name(params[:source_abstract_model]))
-      source_model_config = RailsAdmin.config(source_abstract_model)
+      source_model_config = source_abstract_model.config
       source_object = source_abstract_model.get(params[:source_object_id])
       action = params[:current_action].in?(['create', 'update']) ? params[:current_action] : 'edit'
       association = source_model_config.send(action).fields.find{|f| f.name == params[:associated_collection].to_sym }.with(:controller => self, :object => source_object)

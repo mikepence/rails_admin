@@ -4,13 +4,7 @@ source 'https://rubygems.org'
 # put test-only gems in this group so their generators
 # and rake tasks are available in development mode:
 group :development, :test do
-  gem 'foo', :path => './spec/dummy_app/foo'
-  gem 'rails_admin_custom_field', :git => 'git://github.com/bbenezech/rails_admin_custom_field.git'
-  
   platforms :jruby do
-    gem 'jruby-openssl', '~> 0.7'
-    # activerecord-jdbc-adapter does not yet have a rails 3.1 compatible release
-    gem 'activerecord-jdbc-adapter', :git => 'git://github.com/jruby/activerecord-jdbc-adapter.git'
     case ENV['CI_DB_ADAPTER']
     when 'mysql'
       gem 'activerecord-jdbcmysql-adapter', '~> 1.2'
@@ -29,14 +23,13 @@ group :development, :test do
     when 'mysql'
       gem 'mysql', '~> 2.8'
     when 'postgresql'
-      gem 'pg', '~> 0.10'
+      gem 'pg', '~> 0.13'
     else
       gem 'sqlite3', '~> 1.3'
     end
   end
 
   gem 'cancan'
-  gem 'silent-postgres'
 end
 
 group :debug do

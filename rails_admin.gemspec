@@ -3,7 +3,7 @@ require File.expand_path('../lib/rails_admin/version', __FILE__)
 
 Gem::Specification.new do |gem|
   # If you add a dependency, please maintain alphabetical order
-  gem.add_dependency 'bbenezech-nested_form', '~> 0.0.3'
+  gem.add_dependency 'bbenezech-nested_form', '~> 0.0.5'
   gem.add_dependency 'sass-rails', ['~> 3.1']
   gem.add_dependency 'bootstrap-sass', ['~> 2.0']
   gem.add_dependency 'builder', '~> 3.0'
@@ -24,7 +24,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'mini_magick'
   gem.add_development_dependency 'paperclip'
   gem.add_development_dependency 'rspec-rails'
-  gem.add_development_dependency 'simplecov'
   gem.authors = ["Erik Michaels-Ober", "Bogdan Gaza", "Petteri Kaapa", "Benoit Benezech"]
   gem.description = %q{RailsAdmin is a Rails engine that provides an easy-to-use interface for managing your data.}
   gem.email = ['sferik@gmail.com', 'bogdan@cadmio.org', 'petteri.kaapa@gmail.com']

@@ -11,7 +11,7 @@ describe "RailsAdmin Basic List" do
       visit dashboard_path
     end
   end
-  
+
   describe "GET /admin/typo" do
     it "should redirect to dashboard and inform the user the model wasn't found" do
       visit '/admin/whatever'
@@ -19,7 +19,7 @@ describe "RailsAdmin Basic List" do
       find('.alert-error').should have_content("Model 'Whatever' could not be found")
     end
   end
-  
+
   describe "GET /admin/balls/545-typo" do
     it "should redirect to balls index and inform the user the id wasn't found" do
       visit '/admin/ball/545-typo'
@@ -29,7 +29,7 @@ describe "RailsAdmin Basic List" do
   end
 
   describe "GET /admin/player as list" do
-    before(:each) do
+    before do
       21.times { FactoryGirl.create :player } # two pages of players
       visit index_path(:model_name => "player")
     end
@@ -38,52 +38,26 @@ describe "RailsAdmin Basic List" do
       should have_content("List of Players")
       should have_content("Created at")
       should have_content("Updated at")
-    end
 
-    it "shows the show, edit and delete links" do
+      # it "shows the show, edit and delete links" do
       should have_selector("td a", :text => 'Show')
       should have_selector("td a", :text => 'Edit')
       should have_selector("td a", :text => 'Delete')
-    end
 
-    it "has the search box with some prompt text" do
+      # it "has the search box with some prompt text" do
       should have_selector("input[placeholder='Filter']")
-    end
 
-    # https://github.com/sferik/rails_admin/issues/362
-    # test that no link uses the "wildcard route" with the main
-    # controller and list method
-    it "should not use the 'wildcard route'" do
+      # https://github.com/sferik/rails_admin/issues/362
+      # test that no link uses the "wildcard route" with the main
+      # controller and list method
+      # it "should not use the 'wildcard route'" do
       should have_selector("a[href*='all=true']") # make sure we're fully testing pagination
       should have_no_selector("a[href^='/rails_admin/main/list']")
     end
   end
 
-  describe "GET /admin/player with sort" do
-    before(:each) do
-      @players = 2.times.map { FactoryGirl.create :player }
-      visit index_path(:model_name => "player", :sort => "name")
-    end
-
-    it "should be sorted correctly" do
-      2.times { |i| should have_selector("td", :text => /#{@players[i].name}/) }
-    end
-  end
-
-  describe "GET /admin/player with reverse sort" do
-
-    before(:each) do
-      @players = 2.times.map { FactoryGirl.create :player }
-      visit index_path(:model_name => "player", :sort => "name", :sort_reverse => "true")
-    end
-
-    it "should be sorted correctly" do
-      2.times { |i| should have_selector("td", :text => /#{@players.reverse[i].name}/) }
-    end
-  end
-
   describe "GET /admin/player" do
-    before(:each) do
+    before do
       @teams = 2.times.map do
         FactoryGirl.create(:team)
       end
