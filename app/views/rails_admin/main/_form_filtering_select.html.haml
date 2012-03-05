@@ -25,7 +25,6 @@
       includes_current = false
       _collection = controller.list_entries(config, :index, field.associated_collection_scope, false).map do |o|
         includes_current  ||= o.id == selected_id
-        Rails.logger.debug "includes #{selected_id.inspect} checking #{o.id.inspect}"
         [o.send(config.object_label_method), o.id]
       end
 
