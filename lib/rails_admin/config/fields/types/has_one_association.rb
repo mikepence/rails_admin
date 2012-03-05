@@ -17,7 +17,7 @@ module RailsAdmin
             (o = value) && o.send(associated_model_config.object_label_method)
           end
 
-          def editable
+          def editable?
             (nested_form || abstract_model.model.new.respond_to?("#{self.name}_id=")) && super
           end
 
@@ -27,6 +27,10 @@ module RailsAdmin
 
           def method_name
             nested_form ? "#{self.name}_attributes" : "#{self.name}_id"
+          end
+          
+          def multiple?
+            false
           end
         end
       end

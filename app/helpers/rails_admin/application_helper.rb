@@ -40,18 +40,17 @@ module RailsAdmin
       )
     end
 
-
     def main_navigation
-      nodes_stack = RailsAdmin::Config.visible_models(:controller => self.controller)
+      nodes_stack = RailsAdmin::Config.visible_models(:controller => self.controller)      
       nodes_stack.group_by(&:navigation_label).map do |navigation_label, nodes|
 
         %{<li class='nav-header'>#{navigation_label || t('admin.misc.navigation')}</li>}.html_safe +
-        nodes.select{|n| n.parent.nil? || !n.parent.in?(nodes_stack.map{|c| c.abstract_model.model }) }.map do |node|
+        nodes.select{|n| n.parent.nil? || !n.parent.to_s.in?(nodes_stack.map{|c| c.abstract_model.model_name }) }.map do |node|
           %{
             <li#{' class="active"' if node == @model_config }>
               <a href="#{url_for(:action => :index, :controller => 'rails_admin/main', :model_name => node.abstract_model.to_param)}">#{node.label_plural}</a>
             </li>
-            #{navigation(nodes_stack, nodes_stack.select{|n| n.parent.to_s == node.abstract_model.model.to_s}, 1)}
+            #{navigation(nodes_stack, nodes_stack.select{|n| n.parent.to_s == node.abstract_model.model_name}, 1)}
           }.html_safe
         end.join.html_safe
       end.join.html_safe
@@ -63,7 +62,7 @@ module RailsAdmin
           <li#{' class="active"' if node == @model_config }>
             <a class="nav-level-#{level}" href="#{url_for(:action => :index, :controller => 'rails_admin/main', :model_name => node.abstract_model.to_param)}">#{node.label_plural}</a>
           </li>
-          #{navigation(nodes_stack, nodes_stack.select{ |n| n.parent.to_s == node.abstract_model.model.to_s}, level + 1)}
+          #{navigation(nodes_stack, nodes_stack.select{ |n| n.parent.to_s == node.abstract_model.model_name}, level + 1)}
         }.html_safe
       end.join
     end
@@ -110,7 +109,7 @@ module RailsAdmin
       return '' if actions.empty?
       content_tag :li, { :class => 'dropdown', :style => 'float:right' } do
         content_tag(:a, { :class => 'dropdown-toggle', :'data-toggle' => "dropdown", :href => '#' }) { t('admin.misc.bulk_menu_title').html_safe + '<b class="caret"></b>'.html_safe } +
-        content_tag(:ul, :class => 'dropdown-menu') do
+        content_tag(:ul, :class => 'dropdown-menu', :style => 'left:auto; right:0;') do
           actions.map do |action|
             content_tag :li do
               link_to_function wording_for(:bulk_link, action), "jQuery('#bulk_action').val('#{action.action_name}'); jQuery('#bulk_form').submit()"

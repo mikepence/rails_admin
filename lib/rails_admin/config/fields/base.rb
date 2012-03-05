@@ -1,12 +1,7 @@
-require 'active_support/core_ext/string/inflections'
-require 'active_model/mass_assignment_security'
-
 require 'rails_admin/config/proxyable'
 require 'rails_admin/config/configurable'
 require 'rails_admin/config/hideable'
-require 'rails_admin/config/fields'
-require 'rails_admin/config/fields/association'
-require 'rails_admin/config/fields/groupable'
+require 'rails_admin/config/groupable'
 
 module RailsAdmin
   module Config
@@ -15,14 +10,11 @@ module RailsAdmin
         include RailsAdmin::Config::Proxyable
         include RailsAdmin::Config::Configurable
         include RailsAdmin::Config::Hideable
-
+        include RailsAdmin::Config::Groupable
+        
         attr_reader :name, :properties, :abstract_model
         attr_accessor :defined, :order, :section
         attr_reader :parent, :root
-
-        def self.inherited(klass)
-          klass.instance_variable_set("@view_helper", :text_field)
-        end
 
         def initialize(parent, name, properties)
           @parent = parent
@@ -34,11 +26,9 @@ module RailsAdmin
           @order = 0
           @properties = properties
           @section = parent
-
-          extend RailsAdmin::Config::Fields::Groupable
         end
 
-        register_instance_option(:css_class) do
+        register_instance_option :css_class do
           "#{self.name}_field"
         end
 
@@ -50,37 +40,37 @@ module RailsAdmin
           properties.blank?
         end
 
-        register_instance_option(:column_width) do
+        register_instance_option :column_width do
           nil
         end
 
-        register_instance_option(:sortable) do
+        register_instance_option :sortable do
           !virtual? || children_fields.first || false
         end
 
-        register_instance_option(:searchable) do
+        register_instance_option :searchable do
           !virtual? || children_fields.first || false
         end
 
-        register_instance_option(:queryable?) do
+        register_instance_option :queryable? do
           !virtual?
         end
 
-        register_instance_option(:filterable?) do
+        register_instance_option :filterable? do
           !!searchable
         end
 
-        register_instance_option(:search_operator) do
+        register_instance_option :search_operator do
           @search_operator ||= RailsAdmin::Config.default_search_operator
         end
 
         # serials and dates are reversed in list, which is more natural (last modified items first).
-        register_instance_option(:sort_reverse?) do
+        register_instance_option :sort_reverse? do
           false
         end
 
         # list of columns I should search for that field [{ :column => 'table_name.column', :type => field.type }, {..}]
-        register_instance_option(:searchable_columns) do
+        register_instance_option :searchable_columns do
           @searchable_columns ||= case self.searchable
           when true
             [{ :column => "#{self.abstract_model.model.table_name}.#{self.name}", :type => self.type }]
@@ -113,27 +103,27 @@ module RailsAdmin
           end
         end
 
-        register_instance_option(:formatted_value) do
+        register_instance_option :formatted_value do
           value.to_s
         end
 
         # output for pretty printing (show, list)
-        register_instance_option(:pretty_value) do
+        register_instance_option :pretty_value do
           formatted_value.presence || ' - '
         end
 
         # output for printing in export view (developers beware: no bindings[:view] and no data!)
-        register_instance_option(:export_value) do
+        register_instance_option :export_value do
           pretty_value
         end
 
 
         # Accessor for field's help text displayed below input field.
-        register_instance_option(:help) do
+        register_instance_option :help do
           (@help ||= {})[::I18n.locale] ||= (required? ? I18n.translate("admin.form.required") : I18n.translate("admin.form.optional")) + '. '
         end
 
-        register_instance_option(:html_attributes) do
+        register_instance_option :html_attributes do
           {}
         end
 
@@ -144,20 +134,20 @@ module RailsAdmin
         # Accessor for field's label.
         #
         # @see RailsAdmin::AbstractModel.properties
-        register_instance_option(:label) do
+        register_instance_option :label do
           (@label ||= {})[::I18n.locale] ||= abstract_model.model.human_attribute_name name
         end
 
         # Accessor for field's maximum length per database.
         #
         # @see RailsAdmin::AbstractModel.properties
-        register_instance_option(:length) do
+        register_instance_option :length do
           @length ||= properties && properties[:length]
         end
 
         # Accessor for field's length restrictions per validations
         #
-        register_instance_option(:valid_length) do
+        register_instance_option :valid_length do
           @valid_length ||= abstract_model.model.validators_on(name).find{|v|
             v.is_a?(ActiveModel::Validations::LengthValidator)}.try{|v| v.options} || {}
         end
@@ -169,7 +159,7 @@ module RailsAdmin
         # Accessor for whether this is field is mandatory.
         #
         # @see RailsAdmin::AbstractModel.properties
-        register_instance_option(:required?) do
+        register_instance_option :required? do
           @required ||= !!([name] + children_fields).uniq.find do |column_name|
             !!abstract_model.model.validators_on(column_name).find do |v|
               v.is_a?(ActiveModel::Validations::PresenceValidator) && !v.options[:allow_nil] ||
@@ -181,16 +171,16 @@ module RailsAdmin
         # Accessor for whether this is a serial field (aka. primary key, identifier).
         #
         # @see RailsAdmin::AbstractModel.properties
-        register_instance_option(:serial?) do
+        register_instance_option :serial? do
           properties && properties[:serial?]
         end
 
-        register_instance_option(:view_helper) do
-          @view_helper ||= self.class.instance_variable_get("@view_helper")
+        register_instance_option :view_helper do
+          :text_field
         end
 
-        register_instance_option :read_only do
-          not editable
+        register_instance_option :read_only? do
+          not editable?
         end
 
         # init status in the view
@@ -217,11 +207,10 @@ module RailsAdmin
           bindings[:view].render :partial => partial.to_s, :locals => {:field => self, :form => bindings[:form] }
         end
 
-        def editable
+        def editable?
           return false if @properties && @properties[:read_only]
           !bindings[:object].class.active_authorizer[bindings[:view].controller.send(:_attr_accessible_role)].deny?(self.method_name)
         end
-
 
         # Is this an association
         def association?
@@ -239,7 +228,7 @@ module RailsAdmin
         #
         # @see RailsAdmin::Config::Fields::Base.register_instance_option(:required?)
         def optional?
-          not required
+          not required?
         end
 
         # Inverse accessor whether this field is required.

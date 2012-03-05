@@ -5,8 +5,8 @@
 
   if form.object.new_record? && related_id.present? && related_id != 'new'
     selected = config.abstract_model.get(related_id)
-    selected_id = selected.id
-    selected_name = selected.send(config.object_label_method)
+    selected_id = selected.send(field.associated_primary_key)
+    selected_name = selected.send(field.associated_label_method)
   else
     selected_id = field.selected_id
     selected_name = field.formatted_value
@@ -24,8 +24,9 @@
     else
       includes_current = false
       _collection = controller.list_entries(config, :index, field.associated_collection_scope, false).map do |o|
-        includes_current  ||= o.id == selected_id
-        [o.send(config.object_label_method), o.id]
+        associated_id = o.send(field.associated_primary_key)
+        includes_current  ||= associated_id == selected_id
+        [o.send(field.associated_label_method), associated_id]
       end
 
       if selected_id && !includes_current
