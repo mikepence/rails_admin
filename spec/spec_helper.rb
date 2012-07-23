@@ -1,12 +1,22 @@
 # Configure Rails Envinronment
 ENV["RAILS_ENV"] = "test"
 ENV['SKIP_RAILS_ADMIN_INITIALIZER'] = 'true'
+CI_ORM = (ENV['CI_ORM'] || :active_record).to_sym
+CI_TARGET_ORMS = [:active_record, :mongoid]
+PK_COLUMN = {:active_record=>:id, :mongoid=>:_id}[CI_ORM]
+
+if ENV['INVOKE_SIMPLECOV']
+  require 'simplecov'
+  SimpleCov.start 'rails'
+end
+
 require File.expand_path('../dummy_app/config/environment', __FILE__)
 
 require 'rspec/rails'
 require 'factory_girl'
 require 'factories'
-require 'database_helpers'
+require 'database_cleaner'
+require "orm/#{CI_ORM}"
 
 ActionMailer::Base.delivery_method = :test
 ActionMailer::Base.perform_deliveries = true
@@ -14,9 +24,6 @@ ActionMailer::Base.default_url_options[:host] = "example.com"
 
 Rails.backtrace_cleaner.remove_silencers!
 
-include DatabaseHelpers
-drop_all_tables
-migrate_database
 ENV['SKIP_RAILS_ADMIN_INITIALIZER'] = 'false'
 
 # Don't need passwords in test DB to be secure, but we would like 'em to be
@@ -42,25 +49,15 @@ RSpec.configure do |config|
   require 'rspec/expectations'
 
   config.include RSpec::Matchers
-  config.include DatabaseHelpers
   config.include RailsAdmin::Engine.routes.url_helpers
 
   config.include Warden::Test::Helpers
 
   config.before(:each) do
+    DatabaseCleaner.start
     RailsAdmin::Config.reset
     RailsAdmin::AbstractModel.reset
-    RailsAdmin::Config.excluded_models = [RelTest, FieldTest, Category]
-    RailsAdmin::Config.audit_with :history
-    Category.delete_all
-    Division.delete_all
-    Draft.delete_all
-    Fan.delete_all
-    League.delete_all
-    Player.delete_all
-    Team.delete_all
-    User.delete_all
-    FieldTest.delete_all
+    RailsAdmin::Config.audit_with(:history) if CI_ORM == :active_record
     login_as User.create(
       :email => "username@example.com",
       :password => "password"
@@ -69,5 +66,14 @@ RSpec.configure do |config|
 
   config.after(:each) do
     Warden.test_reset!
+    DatabaseCleaner.clean
+  end
+
+  CI_TARGET_ORMS.each do |orm|
+    if orm == CI_ORM
+      config.filter_run_excluding "skip_#{orm}".to_sym => true
+    else
+      config.filter_run_excluding orm => true
+    end
   end
 end

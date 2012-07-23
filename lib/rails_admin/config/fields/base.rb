@@ -22,7 +22,7 @@ module RailsAdmin
 
           @abstract_model = parent.abstract_model
           @defined = false
-          @name = name
+          @name = name.to_sym
           @order = 0
           @properties = properties
           @section = parent
@@ -73,11 +73,11 @@ module RailsAdmin
         register_instance_option :searchable_columns do
           @searchable_columns ||= case self.searchable
           when true
-            [{ :column => "#{self.abstract_model.model.table_name}.#{self.name}", :type => self.type }]
+            [{ :column => "#{self.abstract_model.table_name}.#{self.name}", :type => self.type }]
           when false
             []
           when :all # valid only for associations
-            table_name = self.associated_model_config.abstract_model.model.table_name
+            table_name = self.associated_model_config.abstract_model.table_name
             self.associated_model_config.list.fields.map { |f| { :column => "#{table_name}.#{f.name}", :type => f.type } }
           else
             [self.searchable].flatten.map do |f|
@@ -86,13 +86,13 @@ module RailsAdmin
                 type = nil
               elsif f.is_a?(Hash)                                              #  <Model|table_name> => <attribute|column>
                 am = f.keys.first.is_a?(Class) && AbstractModel.new(f.keys.first)
-                table_name = am && am.model.table_name || f.keys.first
+                table_name = am && am.table_name || f.keys.first
                 column = f.values.first
                 property = am && am.properties.find{ |p| p[:name] == f.values.first.to_sym }
                 type = property && property[:type]
               else                                                             #  <attribute|column>
                 am = (self.association? ? self.associated_model_config.abstract_model : self.abstract_model)
-                table_name = am.model.table_name
+                table_name = am.table_name
                 column = f
                 property = am.properties.find{ |p| p[:name] == f.to_sym }
                 type = property && property[:type]
@@ -149,7 +149,7 @@ module RailsAdmin
         #
         register_instance_option :valid_length do
           @valid_length ||= abstract_model.model.validators_on(name).find{|v|
-            v.is_a?(ActiveModel::Validations::LengthValidator)}.try{|v| v.options} || {}
+            v.kind == :length }.try{|v| v.options} || {}
         end
 
         register_instance_option :partial do
@@ -162,8 +162,8 @@ module RailsAdmin
         register_instance_option :required? do
           @required ||= !!([name] + children_fields).uniq.find do |column_name|
             !!abstract_model.model.validators_on(column_name).find do |v|
-              v.is_a?(ActiveModel::Validations::PresenceValidator) && !v.options[:allow_nil] ||
-              v.is_a?(ActiveModel::Validations::NumericalityValidator) && !v.options[:allow_nil]
+              v.kind == :presence && !v.options[:allow_nil] ||
+              v.kind == :numericality && !v.options[:allow_nil]
             end
           end
         end
@@ -274,6 +274,24 @@ module RailsAdmin
 
         def html_default_value
           bindings[:object].new_record? && self.value.nil? && !self.default_value.nil? ? self.default_value : nil
+        end
+
+        def inspect
+          "#<#{self.class.name}[#{name}] #{
+            instance_variables.map do |v|
+              value = instance_variable_get(v)
+              if [:@parent, :@root, :@section, :@children_fields_registered,
+                  :@associated_model_config, :@group, :@bindings].include? v
+                if value.respond_to? :name
+                  "#{v}=#{value.name.inspect}"
+                else
+                  "#{v}=#{value.class.name}"
+                end
+              else
+                "#{v}=#{value.inspect}"
+              end
+            end.join(", ")
+          }>"
         end
       end
     end

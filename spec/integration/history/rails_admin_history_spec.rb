@@ -1,7 +1,6 @@
 require 'spec_helper'
-require 'rails_admin/extensions/history/history'
 
-describe "RailsAdmin History" do
+describe "RailsAdmin History", :active_record => true do
   describe "model history fetch" do
     before :each do
       RailsAdmin::History.delete_all
@@ -24,6 +23,23 @@ describe "RailsAdmin History" do
       histories = RailsAdmin::History.history_for_model @model, nil, false, false, false, nil
       histories.total_count.should == 30
       histories.count.should == 15
+    end
+
+    context "with Kaminari" do
+      before do
+        Kaminari.config.page_method_name = :per_page_kaminari
+        @paged = RailsAdmin::History.page(1)
+      end
+
+      after do
+        Kaminari.config.page_method_name = :page
+      end
+
+      it "supports pagination when Kaminari's page_method_name is customized" do
+        RailsAdmin::History.should_receive(:per_page_kaminari).twice.and_return(@paged)
+        RailsAdmin::History.history_for_model @model, nil, false, false, false, nil
+        RailsAdmin::History.history_for_object @model, Player.first, nil, false, false, false, nil
+      end
     end
 
     context "GET admin/history/@model" do
@@ -54,6 +70,12 @@ describe "RailsAdmin History" do
 
         it 'should get latest ones' do
           RailsAdmin::History.latest.count.should == 100
+        end
+
+        it 'should get latest ones orderly' do
+          latest = RailsAdmin::History.latest
+          latest.first.message.should == "change 100"
+          latest.last.message.should == "change 1"
         end
 
         it "should render a XHR request successfully" do

@@ -1,6 +1,18 @@
 module RailsAdmin
-  # FIXME: this needs to be manually kept in sync with the gemspec's
-  # s.version until http://jira.codehaus.org/browse/JRUBY-5319 is
-  # fixed
-  VERSION = "0.0.1"
+  class Version
+    MAJOR = 0 unless defined? MAJOR
+    MINOR = 0 unless defined? MINOR
+    PATCH = 5 unless defined? PATCH
+    PRE = nil unless defined? PRE
+
+    class << self
+
+      # @return [String]
+      def to_s
+        [MAJOR, MINOR, PATCH, PRE].compact.join('.')
+      end
+
+    end
+
+  end
 end

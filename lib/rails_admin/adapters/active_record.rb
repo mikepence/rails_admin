@@ -4,8 +4,15 @@ require 'rails_admin/adapters/active_record/abstract_object'
 module RailsAdmin
   module Adapters
     module ActiveRecord
-      DISABLED_COLUMN_TYPES = [:tsvector, :blob, :binary, :spatial]
-      LIKE_OPERATOR =  ::ActiveRecord::Base.configurations[Rails.env]['adapter'] == "postgresql" ? 'ILIKE' : 'LIKE'
+      DISABLED_COLUMN_TYPES = [:tsvector, :blob, :binary, :spatial, :hstore]
+
+      def ar_adapter
+        Rails.configuration.database_configuration[Rails.env]['adapter']
+      end
+
+      def like_operator
+        ar_adapter == "postgresql" ? 'ILIKE' : 'LIKE'
+      end
 
       def new(params = {})
         AbstractObject.new(model.new(params))
@@ -40,7 +47,9 @@ module RailsAdmin
         scope = scope.where(model.primary_key => options[:bulk_ids]) if options[:bulk_ids]
         scope = scope.where(query_conditions(options[:query])) if options[:query]
         scope = scope.where(filter_conditions(options[:filters])) if options[:filters]
-        scope = scope.page(options[:page]).per(options[:per]) if options[:page] && options[:per]
+        if options[:page] && options[:per]
+          scope = scope.send(Kaminari.config.page_method_name, options[:page]).per(options[:per])
+        end
         scope = scope.reorder("#{options[:sort]} #{options[:sort_reverse] ? 'asc' : 'desc'}") if options[:sort]
         scope
       end
@@ -51,6 +60,10 @@ module RailsAdmin
 
       def destroy(objects)
         Array.wrap(objects).each &:destroy
+      end
+
+      def primary_key
+        model.primary_key
       end
 
       def associations
@@ -84,6 +97,22 @@ module RailsAdmin
             :serial? => property.primary,
           }
         end
+      end
+
+      def table_name
+        model.table_name
+      end
+
+      def serialized_attributes
+        model.serialized_attributes.keys
+      end
+
+      def encoding
+        Rails.configuration.database_configuration[Rails.env]['encoding']
+      end
+
+      def embedded?
+        false
       end
 
       private
@@ -150,6 +179,9 @@ module RailsAdmin
         when :boolean
           return ["(#{column} IS NULL OR #{column} = ?)", false] if ['false', 'f', '0'].include?(value)
           return ["(#{column} = ?)", true] if ['true', 't', '1'].include?(value)
+        when :decimal
+          return if value.blank?
+          ["(#{column} = ?)", value.to_f] if value.to_f.to_s == value
         when :integer, :belongs_to_association
           return if value.blank?
           ["(#{column} = ?)", value.to_i] if value.to_i.to_s == value
@@ -164,52 +196,39 @@ module RailsAdmin
             "%#{value}"
           when 'is', '='
             "#{value}"
+          else
+            return
           end
-          ["(#{column} #{LIKE_OPERATOR} ?)", value]
-        when :datetime, :timestamp, :date
-          return unless operator != 'default'
-          values = case operator
-          when 'today'
-            [Date.today.beginning_of_day, Date.today.end_of_day]
-          when 'yesterday'
-            [Date.yesterday.beginning_of_day, Date.yesterday.end_of_day]
-          when 'this_week'
-            [Date.today.beginning_of_week.beginning_of_day, Date.today.end_of_week.end_of_day]
-          when 'last_week'
-            [1.week.ago.to_date.beginning_of_week.beginning_of_day, 1.week.ago.to_date.end_of_week.end_of_day]
-          when 'less_than'
-            return if value.blank?
-            [value.to_i.days.ago, DateTime.now]
-          when 'more_than'
-            return if value.blank?
-            [2000.years.ago, value.to_i.days.ago]
-          when 'mmddyyyy'
-            return if (value.blank? || value.match(/([0-9]{8})/).nil?)
-            [Date.strptime(value.match(/([0-9]{8})/)[1], '%m%d%Y').beginning_of_day, Date.strptime(value.match(/([0-9]{8})/)[1], '%m%d%Y').end_of_day]
+          ["(#{column} #{like_operator} ?)", value]
+        when :date
+          start_date, end_date = get_filtering_duration(operator, value)
+
+          if start_date && end_date
+            ["(#{column} BETWEEN ? AND ?)", start_date, end_date]
+          elsif start_date
+            ["(#{column} >= ?)", start_date]
+          elsif end_date
+            ["(#{column} <= ?)", end_date]
           end
-          ["(#{column} BETWEEN ? AND ?)", *values]
+        when :datetime, :timestamp
+          start_date, end_date = get_filtering_duration(operator, value)
+
+          if start_date && end_date
+            ["(#{column} BETWEEN ? AND ?)", start_date.to_time.beginning_of_day, end_date.to_time.end_of_day]
+          elsif start_date
+            ["(#{column} >= ?)", start_date.to_time.beginning_of_day]
+          elsif end_date
+            ["(#{column} <= ?)", end_date.to_time.end_of_day]
+          end
         when :enum
           return if value.blank?
           ["(#{column} IN (?))", Array.wrap(value)]
         end
       end
 
-      @@polymorphic_parents = nil
-
-      def self.polymorphic_parents(name)
-        @@polymorphic_parents ||= {}.tap do |hash|
-          RailsAdmin::AbstractModel.all(:active_record).each do |am|
-            am.model.reflect_on_all_associations.select{|r| r.options[:as] }.each do |reflection|
-              (hash[reflection.options[:as].to_sym] ||= []) << am.model
-            end
-          end
-        end
-        @@polymorphic_parents[name.to_sym]
-      end
-
       def association_model_lookup(association)
         if association.options[:polymorphic]
-          RailsAdmin::Adapters::ActiveRecord.polymorphic_parents(association.name) || []
+          RailsAdmin::AbstractModel.polymorphic_parents(:active_record, association.name) || []
         else
           association.klass
         end
@@ -230,7 +249,7 @@ module RailsAdmin
       end
 
       def association_polymorphic_lookup(association)
-        association.options[:polymorphic]
+        !!association.options[:polymorphic]
       end
 
       def association_primary_key_lookup(association)

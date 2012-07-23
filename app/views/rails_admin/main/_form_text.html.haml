@@ -1,9 +1,24 @@
-= form.text_area field.method_name, field.html_attributes.reverse_merge((hdv = field.html_default_value).nil? ? { :value => field.formatted_value } : { :value => hdv })
+:ruby
+  if field.ckeditor
+    richtext = 'ckeditor'
+    js_data = {
+      :jspath => field.ckeditor_location ? field.ckeditor_location : field.ckeditor_base_location + "ckeditor.js",
+      :base_location => field.ckeditor_base_location,
+      :options => { 
+        :customConfig => field.ckeditor_config_js ? field.ckeditor_config_js : field.ckeditor_base_location + "config.js"
+      }
+    }
+  elsif field.codemirror
+    richtext = 'codemirror'
+    js_data = {
+      :csspath => field.codemirror_css_location,
+      :jspath => field.codemirror_js_location,
+      :options => field.codemirror_config,
+      :locations => field.codemirror_assets
+    }
+  else
+    richtext = false
+    js_data = {}
+  end
 
-- if field.ckeditor
-  = javascript_tag do
-    var CKEDITOR_BASEPATH = '/assets/ckeditor/';
-  = javascript_include_tag "/assets/ckeditor/ckeditor.js"
-  = form.javascript_for(field, :modal => false) do
-    :plain
-      CKEDITOR.replace('#{form.dom_id(field)}', { customConfig : '#{field.ckeditor_config_js.html_safe}' });
+= form.text_area field.method_name, field.html_attributes.reverse_merge(:data => { :richtext => richtext, :options => js_data.to_json }).reverse_merge((hdv = field.html_default_value).nil? ? { :value => field.formatted_value } : { :value => hdv })

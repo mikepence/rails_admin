@@ -11,7 +11,7 @@ module RailsAdmin
     def initialize(objects = [], schema = {})
       return self if (@objects = objects).blank?
 
-      @model = objects.first.class
+      @model = objects.dup.first.class
       @abstract_model = RailsAdmin::AbstractModel.new(@model)
       @model_config = @abstract_model.config
       @methods = [(schema[:only] || []) + (schema[:methods] || [])].flatten.compact
@@ -42,7 +42,7 @@ module RailsAdmin
       return '' if @objects.blank?
 
       # encoding shenanigans first
-      @encoding_from = if [nil, '', 'utf8', 'utf-8', 'UTF8', 'UTF-8'].include?(encoding = Rails.configuration.database_configuration[Rails.env]['encoding'])
+      @encoding_from = if [nil, '', 'utf8', 'utf-8', 'UTF8', 'UTF-8'].include?(encoding = @abstract_model.encoding)
         'UTF-8'
       else
         encoding

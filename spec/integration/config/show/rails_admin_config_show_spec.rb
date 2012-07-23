@@ -13,6 +13,24 @@ describe "RailsAdmin Config DSL Show Section" do
     visit show_path(:model_name => "team", :id => team.id)
   end
 
+  describe "JSON show view" do
+    before do
+      @player = FactoryGirl.create :player
+       visit uri
+    end
+
+    let(:uri) { show_path(:model_name => 'player', :id => @player.id, :format => :json) }
+    let(:body) { page.body }
+
+    it 'should create a JSON uri' do
+      uri.should == "/admin/player/#{@player.id}.json"
+    end
+
+    it 'should contain the JSONified object' do
+      body.should include(@player.to_json)
+    end
+  end
+
   describe "compact_show_view" do
 
     it 'should hide empty fields in show view by default' do
@@ -297,6 +315,16 @@ describe "RailsAdmin Config DSL Show Section" do
       %w[Division Founded Wins Losses Win\ percentage Revenue Players Fans].each do |text|
         should have_selector(".label", :text => text)
       end
+    end
+  end
+
+  describe 'embedded model', :mongoid => true do
+    it "should not show link to individual object's page" do
+      @record = FactoryGirl.create :field_test
+      2.times.each{|i| @record.embeds.create :name => "embed #{i}"}
+      visit show_path(:model_name => "field_test", :id => @record.id)
+      should_not have_link('embed 0')
+      should_not have_link('embed 1')
     end
   end
 end
