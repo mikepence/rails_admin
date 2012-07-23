@@ -5,6 +5,7 @@ module RailsAdmin
   module Adapters
     module ActiveRecord
       DISABLED_COLUMN_TYPES = [:tsvector, :blob, :binary, :spatial, :hstore]
+      DISABLED_COLUMN_MATCHERS = [/_array$/]
 
       def ar_adapter
         Rails.configuration.database_configuration[Rails.env]['adapter']
@@ -86,7 +87,9 @@ module RailsAdmin
       end
 
       def properties
-        columns = model.columns.reject {|c| c.type.blank? || DISABLED_COLUMN_TYPES.include?(c.type.to_sym) }
+        columns = model.columns.reject do |c|
+          c.type.blank? || DISABLED_COLUMN_TYPES.include?(c.type.to_sym) || DISABLED_COLUMN_MATCHERS.any? {|matcher| matcher.match(c.type)}
+        end
         columns.map do |property|
           {
             :name => property.name.to_sym,
