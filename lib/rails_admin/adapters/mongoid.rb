@@ -83,55 +83,18 @@ module RailsAdmin
       def properties
         fields = model.fields.reject{|name, field| DISABLED_COLUMN_TYPES.include?(field.type.to_s) }
         fields.map do |name,field|
-          ar_type = {
-            "Array"          => { :type => :serialized },
-            "BigDecimal"     => { :type => :decimal },
-            "Boolean"        => { :type => :boolean },
-            "BSON::ObjectId" => { :type => :bson_object_id, :serial? => (name == primary_key) },
-            "Moped::BSON::ObjectId" => { :type => :bson_object_id, :serial? => (name == primary_key) },
-            "Date"           => { :type => :date },
-            "DateTime"       => { :type => :datetime },
-            "Float"          => { :type => :float },
-            "Hash"           => { :type => :serialized },
-            "Integer"        => { :type => :integer },
-            "Object"         => (
-              if associations.find{|a| a[:type] == :belongs_to && a[:foreign_key] == name.to_sym}
-                { :type => :bson_object_id }
-              else
-                { :type => :string, :length => 255 }
-              end
-            ),
-            "String"         => (
-              if (length = length_validation_lookup(name)) && length < 256
-                { :type => :string, :length => length }
-              elsif STRING_TYPE_COLUMN_NAMES.include?(name.to_sym)
-                { :type => :string, :length => 255 }
-              else
-                { :type => :text }
-              end
-            ),
-            "Symbol"         => { :type => :string, :length => 255 },
-            "Time"           => { :type => :datetime },
-          }[field.type.to_s] or raise "Need to map field #{field.type.to_s} for field name #{name} in #{model.inspect}"
-
           {
             :name => field.name.to_sym,
             :length => nil,
             :pretty_name => field.name.to_s.gsub('_', ' ').strip.capitalize,
             :nullable? => true,
             :serial? => false,
-          }.merge(ar_type)
+          }.merge(type_lookup(name, field))
         end
       end
 
       def table_name
         model.collection_name.to_s
-      end
-
-      def serialized_attributes
-        # Mongoid Array and Hash type columns are mapped to RA serialized type
-        # through type detection in self#properties.
-        []
       end
 
       def encoding
@@ -144,6 +107,10 @@ module RailsAdmin
 
       def object_id_from_string(str)
         ObjectId.from_string(str)
+      end
+
+      def adapter_supports_joins?
+        false
       end
 
       private
@@ -231,8 +198,22 @@ module RailsAdmin
           return { column => false } if ['false', 'f', '0'].include?(value)
           return { column => true } if ['true', 't', '1'].include?(value)
         when :integer
-          return if value.blank?
-          { column => value.to_i } if value.to_i.to_s == value
+          case value
+          when Array then
+            val, range_begin, range_end = *value.map{|v| v.blank? ? nil : (v == v.to_i.to_s) ? v.to_i : nil}
+            if range_begin && range_end
+              { column => {'$gte' => range_begin, '$lte' => range_end} }
+            elsif range_begin
+              { column => {'$gte' => range_begin} }
+            elsif range_end
+              { column => {'$lte' => range_end} }
+            elsif val
+              { column => val }
+            end
+          else
+            s = value.to_s
+            return s =~ /^[\-]?\d+$/ ? { column => s.to_i } : nil
+          end
         when :string, :text
           return if value.blank?
           value = case operator
@@ -277,9 +258,44 @@ module RailsAdmin
         end
       end
 
+      def type_lookup(name, field)
+        {
+          "Array"          => { :type => :serialized },
+          "BigDecimal"     => { :type => :decimal },
+          "Boolean"        => { :type => :boolean },
+          "BSON::ObjectId" => { :type => :bson_object_id, :serial? => (name == primary_key) },
+          "Moped::BSON::ObjectId" => { :type => :bson_object_id, :serial? => (name == primary_key) },
+          "Date"           => { :type => :date },
+          "DateTime"       => { :type => :datetime },
+          "ActiveSupport::TimeWithZone" => { :type => :datetime },
+          "Float"          => { :type => :float },
+          "Hash"           => { :type => :serialized },
+          "Money"          => { :type => :serialized },
+          "Integer"        => { :type => :integer },
+          "Object"         => (
+            if associations.find{|a| a[:type] == :belongs_to && a[:foreign_key] == name.to_sym}
+              { :type => :bson_object_id }
+            else
+              { :type => :string, :length => 255 }
+            end
+          ),
+            "String"         => (
+              if (length = length_validation_lookup(name)) && length < 256
+                { :type => :string, :length => length }
+              elsif STRING_TYPE_COLUMN_NAMES.include?(name.to_sym)
+                { :type => :string, :length => 255 }
+              else
+                { :type => :text }
+              end
+          ),
+            "Symbol"         => { :type => :string, :length => 255 },
+            "Time"           => { :type => :datetime },
+        }[field.type.to_s] or raise "Type #{field.type.to_s} for field :#{name} in #{model.inspect} not supported"
+      end
+
       def association_model_proc_lookup(association)
         if association.polymorphic? && [:referenced_in, :belongs_to].include?(association.macro)
-          RailsAdmin::AbstractModel.polymorphic_parents(:mongoid, association.name) || []
+          RailsAdmin::AbstractModel.polymorphic_parents(:mongoid, self.model.model_name, association.name) || []
         else
           association.klass
         end
@@ -397,6 +413,7 @@ module RailsAdmin
 
       def sort_by(options, scope)
         return scope unless options[:sort]
+
         field_name, collection_name = options[:sort].to_s.split('.').reverse
         if collection_name && collection_name != table_name
           # sorting by associated model column is not supported, so just ignore
