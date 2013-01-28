@@ -320,23 +320,6 @@ module RailsAdmin
         end
       end
 
-      # Deferred configuration blocks that will be called later.
-      attr_writer :deferred_configurations
-      def deferred_configurations
-        @deferred_configurations ||= []
-      end
-
-      def defer(block)
-        deferred_configurations << block
-      end
-
-      # Process all deferred blocks
-      def deferred
-        deferred_configurations.each do |configuration|
-          configuration.call(self)
-        end
-      end
-
       private
 
       def lchomp(base, arg)
